@@ -19,6 +19,13 @@ namespace Dotkit.S3
         /// </summary>
         /// <param name="key">Путь к директории</param>
         /// <returns>Информация о директории</returns>
-        Task<S3DirectoryInfo> GetDirectoryInfoAsync(string key);
+        Task<S3DirectoryInfo> GetDirectoryAsync(string key);
+
+        /// <summary>
+        /// Возвразает информацию о файле
+        /// </summary>
+        /// <param name="key">Путь к файлу</param>
+        /// <returns>Инфорамция о файле</returns>
+        Task<S3FileInfo> GetFileAsync(string key);
     }
 }

@@ -31,11 +31,18 @@ namespace Dotkit.S3
             _s3Client.Dispose();
         }
 
-        public async Task<S3DirectoryInfo> GetDirectoryInfoAsync(string key)
+        public async Task<S3DirectoryInfo> GetDirectoryAsync(string key)
         {
             var di = new S3DirectoryInfo(_s3Client, _bucketName, key);
-            await di.InitFromRemoteAsync();
+            await di.UpdateFromRemoteAsync();
             return di;
+        }
+
+        public async Task<S3FileInfo> GetFileAsync(string key)
+        {
+            var fi = new S3FileInfo(_s3Client, _bucketName, key);
+            await fi.UpdateFromRemoteAsync();
+            return fi;
         }
     }
 }

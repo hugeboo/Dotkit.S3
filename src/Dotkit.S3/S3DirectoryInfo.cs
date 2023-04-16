@@ -10,6 +10,8 @@ using System.Linq;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml.Linq;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace Dotkit.S3
 {
@@ -22,12 +24,23 @@ namespace Dotkit.S3
         private readonly string _bucketName;
         private readonly IAmazonS3 _s3Client;
         private readonly string _key;
-        private readonly S3DirectoryInfo _root;
+        private S3DirectoryInfo? _root = null;
 
         /// <summary>
         /// "Корень" S3 хранилища
         /// </summary>
-        public S3DirectoryInfo Root => _root;
+        public S3DirectoryInfo Root
+        {
+            get
+            {
+                if (_root == null)
+                {
+                    _root = new S3DirectoryInfo(_s3Client, _bucketName, "");
+                    _root.Exists = true;
+                }
+                return _root;
+            }
+        }
 
         public bool Exists { get; private set; }
 
@@ -68,32 +81,41 @@ namespace Dotkit.S3
             {
                 _key = string.Empty;
             }
-
-            _root = new S3DirectoryInfo(_s3Client, _bucketName, "");
-            _root.Exists = true;
         }
 
         /// <summary>
         /// Актуалзировать информацию (Exists, LastModifiedTime) из S3 хранилища
         /// </summary>
-        internal async Task InitFromRemoteAsync()
+        internal async Task UpdateFromRemoteAsync()
         {
-            var request = new ListObjectsV2Request
+            try
             {
-                BucketName = _bucketName,
-                Prefix = S3Helper.EncodeKey(_key),
-                MaxKeys = 1
-            };
-            var response = await _s3Client.ListObjectsV2Async(request);
-            if (response.HttpStatusCode == System.Net.HttpStatusCode.OK && response.S3Objects.Count == 1)
-            {
-                Exists = true;
-                LastModifiedTime = response.S3Objects[0].LastModified;
+                var request = new ListObjectsV2Request
+                {
+                    BucketName = _bucketName,
+                    Prefix = S3Helper.EncodeKey(_key),
+                    MaxKeys = 1
+                };
+                var response = await _s3Client.ListObjectsV2Async(request);
+                if (response.HttpStatusCode == System.Net.HttpStatusCode.OK && response.S3Objects.Count == 1)
+                {
+                    Exists = true;
+                    LastModifiedTime = response.S3Objects[0].LastModified;
+                }
+                else
+                {
+                    Exists = false;
+                    LastModifiedTime = DateTime.MinValue;
+                }
             }
-            else
+            catch(AmazonS3Exception ex)
             {
-                Exists = false;
-                LastModifiedTime = DateTime.MinValue;
+                if (string.Equals(ex.ErrorCode, "NotFound"))
+                {
+                    Exists = false;
+                    LastModifiedTime = DateTime.MinValue;
+                }
+                throw;
             }
         }
 
@@ -113,7 +135,7 @@ namespace Dotkit.S3
             {
                 string text = _key.Substring(0, num2);
                 var di = new S3DirectoryInfo(_s3Client, _bucketName, text);
-                await di.InitFromRemoteAsync();
+                await di.UpdateFromRemoteAsync();
                 return di;
             }
         }
@@ -124,7 +146,8 @@ namespace Dotkit.S3
         /// <remarks>
         /// Если директория уже существует, то метод ничего не делает
         /// </remarks>
-        public async Task CreateAsync()
+        /// <returns>Ссылка на себя</returns>
+        public async Task<S3DirectoryInfo> CreateAsync()
         {
             var request = new PutObjectRequest 
             {
@@ -133,7 +156,9 @@ namespace Dotkit.S3
             };
             await _s3Client.PutObjectAsync(request);
 
-            await InitFromRemoteAsync();
+            await UpdateFromRemoteAsync();
+
+            return this;
         }
 
         public async Task DeleteAsync()
@@ -193,7 +218,7 @@ namespace Dotkit.S3
             };
             await _s3Client.DeleteObjectAsync(deleteObjectRequest);
 
-            await InitFromRemoteAsync();
+            await UpdateFromRemoteAsync();
         }
 
         /// <summary>
@@ -201,12 +226,95 @@ namespace Dotkit.S3
         /// </summary>
         /// <param name="name">Имя поддиректории</param>
         /// <returns>Поддиреткория</returns>
-        public async Task<S3DirectoryInfo> GetSubDirectoryInfoAsync(string name)
+        public async Task<S3DirectoryInfo> GetSubDirectoryAsync(string name)
         {
             var key = Path.Combine(_key, name);
             var di = new S3DirectoryInfo(_s3Client, _bucketName, key);
-            await di.InitFromRemoteAsync();
+            await di.UpdateFromRemoteAsync();
             return di;
+        }
+
+        /// <summary>
+        /// Получить список поддиректорий
+        /// </summary>
+        /// <remarks>
+        /// По каждой поддиректории будет отдельный запрос в S3 хранилище для инициализации полей
+        /// </remarks>
+        /// <returns>Список поддиректорий</returns>
+        public async Task<List<S3DirectoryInfo>> GetDirectories()
+        {
+            var request = new ListObjectsV2Request 
+            {
+                BucketName = _bucketName, 
+                Prefix = S3Helper.EncodeKey(_key), 
+                Delimiter = "/"
+            };
+            var response = await _s3Client.ListObjectsV2Async(request);
+
+            var lst = new List<S3DirectoryInfo>();
+            foreach (var item in response.CommonPrefixes)
+            {
+                var di = new S3DirectoryInfo(_s3Client, _bucketName, S3Helper.DecodeKey(item));
+                await di.UpdateFromRemoteAsync();
+                lst.Add(di);
+            }
+            return lst;
+        }
+
+        /// <summary>
+        /// Получить список файлов в директории
+        /// </summary>
+        /// <returns>Список файлов</returns>
+        public async Task<List<S3FileInfo>> GetFiles()
+        {
+            var request = new ListObjectsV2Request
+            {
+                BucketName = _bucketName,
+                Prefix = S3Helper.EncodeKey(_key),
+                Delimiter = "/"
+            };
+
+            var lst = new List<S3FileInfo>();
+
+            ListObjectsV2Response? response;
+            do
+            {
+                response = await _s3Client.ListObjectsV2Async(request);
+                foreach (S3Object item in response.S3Objects)
+                {
+                    var key = S3Helper.DecodeKey(item.Key);
+
+                    if (string.Equals(_key, key, StringComparison.Ordinal) || !key.EndsWith("\\"))
+                        continue;
+
+                    var file = new S3FileInfo(_s3Client, _bucketName, key);
+                    file.InitFromRemoteObject(item);
+
+                    lst.Add(file);
+
+                    request.StartAfter = item.Key;
+                }
+            }
+            while (response.IsTruncated);
+
+            return lst;
+        }
+
+        /// <summary>
+        /// Получить список всего содержимого директории (поддиректрии + файлы)
+        /// </summary>
+        /// <returns>Список содержимого</returns>
+        public async Task<List<IS3FileSystemInfo>> GetItems()
+        {
+            var lst = new List<IS3FileSystemInfo>();
+
+            var dirs = await GetDirectories();
+            lst.AddRange(dirs);
+
+            var files = await GetFiles();
+            lst.AddRange(files);
+
+            return lst;
         }
     }
 }
