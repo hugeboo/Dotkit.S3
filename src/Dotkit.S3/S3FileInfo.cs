@@ -8,6 +8,9 @@ using System.Linq;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
+using Amazon.S3.Transfer;
+using Amazon.Runtime.Internal.Util;
+using System.IO;
 
 namespace Dotkit.S3
 {
@@ -22,7 +25,7 @@ namespace Dotkit.S3
         private readonly string _key;
         private readonly S3DirectoryInfo _directory;
 
-        public bool Exists {get; private set;}
+        public bool Exists { get; private set; }
 
         public string Extension
         {
@@ -56,7 +59,7 @@ namespace Dotkit.S3
         /// <summary>
         /// Returns the parent S3DirectoryInfo
         /// </summary>
-        public S3DirectoryInfo Directory => Directory;
+        public S3DirectoryInfo Directory => _directory;
 
         /// <summary>
         /// The full name of parent directory
@@ -106,7 +109,7 @@ namespace Dotkit.S3
         /// <summary>
         /// Актуалзировать информацию (Exists, LastModifiedTime, Length) из S3 хранилища
         /// </summary>
-        internal async Task InitFromRemoteAsync()
+        internal async Task UpdateFromRemoteAsync()
         {
             try
             {
@@ -161,9 +164,129 @@ namespace Dotkit.S3
             Length = obj.Size;
         }
 
-        public Task DeleteAsync()
+        /// <summary>
+        /// Создание (загрузка) файла в S3 хранилище из локального входного потока
+        /// </summary>
+        /// <param name="stream">Входной поток</param>
+        /// <returns>Сссылка на себя</returns>
+        public async Task<S3FileInfo> CreateAsync(Stream stream)
         {
-            throw new NotImplementedException();
+            using var fileTransferUtility = new TransferUtility(_s3Client);
+
+            var fileTransferUtilityRequest = new TransferUtilityUploadRequest
+            {
+                BucketName = _bucketName,
+                InputStream = stream,
+                AutoCloseStream = false,
+                StorageClass = S3StorageClass.StandardInfrequentAccess,
+                PartSize = 6291456, // 6 MB.
+                Key = S3Helper.EncodeKey(_key),
+                CannedACL = S3CannedACL.PublicRead
+            };
+            //fileTransferUtilityRequest.Metadata.Add("param1", "Value1");
+            //fileTransferUtilityRequest.Metadata.Add("param2", "Value2");
+
+            await fileTransferUtility.UploadAsync(fileTransferUtilityRequest);
+
+            await UpdateFromRemoteAsync();
+
+            return this;
+        }
+
+        /// <summary>
+        /// Создание (загрузка) текстового файла в S3 хранилище
+        /// </summary>
+        /// <param name="text">Текст - содержимое файла</param>
+        /// <returns>Сссылка на себя</returns>
+        public async Task<S3FileInfo> CreateTextAsync(string text)
+        {
+            using var memStream = new MemoryStream();
+            byte[] data = Encoding.UTF8.GetBytes(text); 
+            memStream.Write(data, 0, data.Length); 
+            memStream.Position = 0;
+
+            await CreateAsync(memStream);
+
+            return this;
+        }
+
+        /// <summary>
+        /// Загрузка локального файла в S3 хранилище
+        /// </summary>
+        /// <param name="localFilePath">Полный путь к локальному файлу</param>
+        /// <returns>Сссылка на себя</returns>
+        public async Task<S3FileInfo> UploadFileAsync(string localFilePath)
+        {
+            using var fileTransferUtility = new TransferUtility(_s3Client);
+
+            var fileTransferUtilityRequest = new TransferUtilityUploadRequest
+            {
+                BucketName = _bucketName,
+                FilePath = localFilePath,
+                StorageClass = S3StorageClass.StandardInfrequentAccess,
+                PartSize = 6291456, // 6 MB.
+                Key = S3Helper.EncodeKey(_key),
+                CannedACL = S3CannedACL.PublicRead
+            };
+            //fileTransferUtilityRequest.Metadata.Add("param1", "Value1");
+            //fileTransferUtilityRequest.Metadata.Add("param2", "Value2");
+
+            await fileTransferUtility.UploadAsync(fileTransferUtilityRequest);
+
+            await UpdateFromRemoteAsync();
+
+            return this;
+        }
+
+        /// <summary>
+        /// Загрузить файл из S3 хранилища в локальную ФС
+        /// </summary>
+        /// <param name="localFilePath">Полный локальный путь</param>
+        /// <returns>Признак успеха операции</returns>
+        public async Task<bool> DownloadAsync(string localFilePath)
+        {
+            using var fileTransferUtility = new TransferUtility(_s3Client);
+
+            var fileTransferUtilityRequest = new TransferUtilityDownloadRequest
+            {
+                BucketName = _bucketName,
+                Key = S3Helper.EncodeKey(_key),
+                FilePath = localFilePath
+            };
+
+            await fileTransferUtility.DownloadAsync(fileTransferUtilityRequest);
+
+            return File.Exists(localFilePath);
+        }
+
+        /// <summary>
+        /// Открыть удаленный файл в S3 хранилище на чтение.
+        /// Метод экспериментальный!
+        /// </summary>
+        /// <remarks>
+        /// Возвращаемый поток после чтения необходимо закрыть (Dispose)
+        /// </remarks>
+        /// <returns>Открытый поток на чтение</returns>
+        public async Task<Stream> OpenReadAsync()
+        {
+            GetObjectRequest getObjectRequest = new GetObjectRequest
+            {
+                BucketName = _bucketName,
+                Key = S3Helper.EncodeKey(_key)
+            };
+            GetObjectResponse getObjectResponse = await _s3Client.GetObjectAsync(getObjectRequest);
+            return getObjectResponse.ResponseStream;
+        }
+
+        public async Task DeleteAsync()
+        {
+            var deleteObjectRequest = new DeleteObjectRequest
+            {
+                BucketName = _bucketName,
+                Key = S3Helper.EncodeKey(_key)
+            };
+            await _s3Client.DeleteObjectAsync(deleteObjectRequest);
+            await UpdateFromRemoteAsync();
         }
     }
 }

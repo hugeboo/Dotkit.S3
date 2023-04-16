@@ -86,7 +86,7 @@ namespace Dotkit.S3
         /// <summary>
         /// Актуалзировать информацию (Exists, LastModifiedTime) из S3 хранилища
         /// </summary>
-        internal async Task InitFromRemoteAsync()
+        internal async Task UpdateFromRemoteAsync()
         {
             try
             {
@@ -135,7 +135,7 @@ namespace Dotkit.S3
             {
                 string text = _key.Substring(0, num2);
                 var di = new S3DirectoryInfo(_s3Client, _bucketName, text);
-                await di.InitFromRemoteAsync();
+                await di.UpdateFromRemoteAsync();
                 return di;
             }
         }
@@ -156,7 +156,7 @@ namespace Dotkit.S3
             };
             await _s3Client.PutObjectAsync(request);
 
-            await InitFromRemoteAsync();
+            await UpdateFromRemoteAsync();
 
             return this;
         }
@@ -218,7 +218,7 @@ namespace Dotkit.S3
             };
             await _s3Client.DeleteObjectAsync(deleteObjectRequest);
 
-            await InitFromRemoteAsync();
+            await UpdateFromRemoteAsync();
         }
 
         /// <summary>
@@ -226,11 +226,11 @@ namespace Dotkit.S3
         /// </summary>
         /// <param name="name">Имя поддиректории</param>
         /// <returns>Поддиреткория</returns>
-        public async Task<S3DirectoryInfo> GetSubDirectoryInfoAsync(string name)
+        public async Task<S3DirectoryInfo> GetSubDirectoryAsync(string name)
         {
             var key = Path.Combine(_key, name);
             var di = new S3DirectoryInfo(_s3Client, _bucketName, key);
-            await di.InitFromRemoteAsync();
+            await di.UpdateFromRemoteAsync();
             return di;
         }
 
@@ -255,7 +255,7 @@ namespace Dotkit.S3
             foreach (var item in response.CommonPrefixes)
             {
                 var di = new S3DirectoryInfo(_s3Client, _bucketName, S3Helper.DecodeKey(item));
-                await di.InitFromRemoteAsync();
+                await di.UpdateFromRemoteAsync();
                 lst.Add(di);
             }
             return lst;
@@ -276,7 +276,7 @@ namespace Dotkit.S3
 
             var lst = new List<S3FileInfo>();
 
-            ListObjectsV2Response? response = null;
+            ListObjectsV2Response? response;
             do
             {
                 response = await _s3Client.ListObjectsV2Async(request);
