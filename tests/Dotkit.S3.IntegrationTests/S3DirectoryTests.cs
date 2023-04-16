@@ -5,7 +5,7 @@ namespace Dotkit.S3.IntegrationTests
     public class S3DirectoryTests
     {
         [Fact]
-        public void CreateDirectory()
+        public void CreateAndDeeletDirectory()
         {
             var config = new S3Configuration();
             var service = config.CreateService();
@@ -43,28 +43,10 @@ namespace Dotkit.S3.IntegrationTests
             Assert.False(di.Exists);
         }
 
-        // Тестовая структура директорий:
-        //
-        // EnumerateTests
-        // |
-        // +-Level11
-        // | |
-        // | +-Level21
-        // | +-Level22
-        // | +-text11.txt
-        // |
-        // +-Level12
-        // | |
-        // | +-Level23
-        // |   |
-        // |   +-Level31
-        // |   +-Level32
-        // +-text00.txt
-
         [Fact]
         public void EnumerateDirectories()
         {
-            var service = CreateEnumerateTestDirs();
+            var service = Utils.CreateEnumerateTestDirs();
 
             var root = service.GetDirectoryAsync("EnumerateTests").Result;
 
@@ -89,25 +71,6 @@ namespace Dotkit.S3.IntegrationTests
 
             root.DeleteAsync(true).Wait();
             Assert.False(root.Exists);
-        }
-
-        private static IS3Service CreateEnumerateTestDirs()
-        {
-            var config = new S3Configuration();
-            var service = config.CreateService();
-
-            var root = service.GetDirectoryAsync("EnumerateTests").Result.CreateAsync().Result;
-
-            var level11 = root.GetSubDirectoryAsync("Level11").Result.CreateAsync().Result;
-            var level21 = level11.GetSubDirectoryAsync("Level21").Result.CreateAsync().Result;
-            var level22 = level11.GetSubDirectoryAsync("Level22").Result.CreateAsync().Result;
-
-            var level12 = root.GetSubDirectoryAsync("Level12").Result.CreateAsync().Result;
-            var level23 = level12.GetSubDirectoryAsync("Level23").Result.CreateAsync().Result;
-            var level31 = level23.GetSubDirectoryAsync("Level31").Result.CreateAsync().Result;
-            var level32 = level23.GetSubDirectoryAsync("Level32").Result.CreateAsync().Result;
-
-            return service;
         }
     }
 }
