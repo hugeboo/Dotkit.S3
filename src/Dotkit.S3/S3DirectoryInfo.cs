@@ -23,8 +23,9 @@ namespace Dotkit.S3
     {
         private readonly string _bucketName;
         private readonly IAmazonS3 _s3Client;
-        private readonly string _key;
         private S3DirectoryInfo? _root = null;
+
+        public string Key { get; private set; }
 
         /// <summary>
         /// "Корень" S3 хранилища
@@ -50,15 +51,15 @@ namespace Dotkit.S3
 
         public string Extension => string.Empty;
 
-        public string FullName => $"{_bucketName}:\\{_key}";
+        public string FullName => $"{_bucketName}:\\{Key}";
 
         public string Name
         {
             get
             {
-                int num = _key.LastIndexOf('\\');
-                int num2 = _key.LastIndexOf('\\', num - 1);
-                return _key.Substring(num2 + 1, num - num2 - 1);
+                int num = Key.LastIndexOf('\\');
+                int num2 = Key.LastIndexOf('\\', num - 1);
+                return Key.Substring(num2 + 1, num - num2 - 1);
             }
         }
 
@@ -68,20 +69,24 @@ namespace Dotkit.S3
         /// <param name="s3Client">Клиент для связи с S3 хранилищем</param>
         /// <param name="bucket">Имя бакета</param>
         /// <param name="key">Путь к директории</param>
-        internal S3DirectoryInfo(IAmazonS3 s3Client, string bucket, string key) 
+        /// <param name="exists">Признак существования дииректории</param>
+        internal S3DirectoryInfo(IAmazonS3 s3Client, string bucket, string key, bool exists = false) 
         {
             _s3Client = s3Client;
             _bucketName = bucket;
-            _key = key;
-            if (!_key.EndsWith("\\"))
+            Exists = exists;
+            Key = key;
+            if (!Key.EndsWith("\\"))
             {
-                _key = _key + "\\";
+                Key = Key + "\\";
             }
-            if (_key == "\\")
+            if (Key == "\\")
             {
-                _key = string.Empty;
+                Key = string.Empty;
             }
         }
+
+        public override string ToString() => Key;
 
         /// <summary>
         /// Актуалзировать информацию (Exists, LastModifiedTime) из S3 хранилища
@@ -93,10 +98,10 @@ namespace Dotkit.S3
                 var request = new ListObjectsV2Request
                 {
                     BucketName = _bucketName,
-                    Prefix = S3Helper.EncodeKey(_key),
+                    Prefix = S3Helper.EncodeKey(Key),
                     MaxKeys = 1
                 };
-                var response = await _s3Client.ListObjectsV2Async(request);
+                var response = await _s3Client.ListObjectsV2Async(request).ConfigureAwait(false);
                 if (response.HttpStatusCode == System.Net.HttpStatusCode.OK && response.S3Objects.Count == 1)
                 {
                     Exists = true;
@@ -125,15 +130,15 @@ namespace Dotkit.S3
         /// <returns>Родительская директория</returns>
         public async Task<S3DirectoryInfo> GetParentAsync()
         {
-            int num = _key.LastIndexOf('\\');
-            int num2 = _key.LastIndexOf('\\', num - 1);
+            int num = Key.LastIndexOf('\\');
+            int num2 = Key.LastIndexOf('\\', num - 1);
             if (num2 == -1)
             {
                 return Root;
             }
             else
             {
-                string text = _key.Substring(0, num2);
+                string text = Key.Substring(0, num2);
                 var di = new S3DirectoryInfo(_s3Client, _bucketName, text);
                 await di.UpdateFromRemoteAsync();
                 return di;
@@ -152,9 +157,9 @@ namespace Dotkit.S3
             var request = new PutObjectRequest 
             {
                 BucketName = _bucketName, 
-                Key = S3Helper.EncodeKey(_key)
+                Key = S3Helper.EncodeKey(Key)
             };
-            await _s3Client.PutObjectAsync(request);
+            await _s3Client.PutObjectAsync(request).ConfigureAwait(false);
 
             await UpdateFromRemoteAsync();
 
@@ -180,7 +185,7 @@ namespace Dotkit.S3
                 var listObjectsRequest = new ListObjectsV2Request
                 {
                     BucketName = _bucketName,
-                    Prefix = S3Helper.EncodeKey(_key)
+                    Prefix = S3Helper.EncodeKey(Key)
                 };
 
                 var deleteObjectsRequest = new DeleteObjectsRequest
@@ -191,13 +196,13 @@ namespace Dotkit.S3
                 ListObjectsV2Response? listObjectsResponse = null;
                 do
                 {
-                    listObjectsResponse = await _s3Client.ListObjectsV2Async(listObjectsRequest);
+                    listObjectsResponse = await _s3Client.ListObjectsV2Async(listObjectsRequest).ConfigureAwait(false);
                     foreach (S3Object item in listObjectsResponse.S3Objects.OrderBy((S3Object x) => x.Key))
                     {
                         deleteObjectsRequest.AddKey(item.Key);
                         if (deleteObjectsRequest.Objects.Count == 1000)
                         {
-                            await _s3Client.DeleteObjectsAsync(deleteObjectsRequest);
+                            await _s3Client.DeleteObjectsAsync(deleteObjectsRequest).ConfigureAwait(false);
                             deleteObjectsRequest.Objects.Clear();
                         }
 
@@ -207,16 +212,16 @@ namespace Dotkit.S3
                 while (listObjectsResponse.IsTruncated);
                 if (deleteObjectsRequest.Objects.Count > 0)
                 {
-                    await _s3Client.DeleteObjectsAsync(deleteObjectsRequest);
+                    await _s3Client.DeleteObjectsAsync(deleteObjectsRequest).ConfigureAwait(false);
                 }
             }
 
             var deleteObjectRequest = new DeleteObjectRequest
             {
                 BucketName = _bucketName,
-                Key = S3Helper.EncodeKey(_key)
+                Key = S3Helper.EncodeKey(Key)
             };
-            await _s3Client.DeleteObjectAsync(deleteObjectRequest);
+            await _s3Client.DeleteObjectAsync(deleteObjectRequest).ConfigureAwait(false);
 
             await UpdateFromRemoteAsync();
         }
@@ -228,7 +233,7 @@ namespace Dotkit.S3
         /// <returns>Поддиреткория</returns>
         public async Task<S3DirectoryInfo> GetSubDirectoryAsync(string name)
         {
-            var key = Path.Combine(_key, name);
+            var key = Path.Combine(Key, name);
             var di = new S3DirectoryInfo(_s3Client, _bucketName, key);
             await di.UpdateFromRemoteAsync();
             return di;
@@ -246,10 +251,10 @@ namespace Dotkit.S3
             var request = new ListObjectsV2Request 
             {
                 BucketName = _bucketName, 
-                Prefix = S3Helper.EncodeKey(_key), 
+                Prefix = S3Helper.EncodeKey(Key), 
                 Delimiter = "/"
             };
-            var response = await _s3Client.ListObjectsV2Async(request);
+            var response = await _s3Client.ListObjectsV2Async(request).ConfigureAwait(false);
 
             var lst = new List<S3DirectoryInfo>();
             foreach (var item in response.CommonPrefixes)
@@ -270,7 +275,7 @@ namespace Dotkit.S3
             var request = new ListObjectsV2Request
             {
                 BucketName = _bucketName,
-                Prefix = S3Helper.EncodeKey(_key),
+                Prefix = S3Helper.EncodeKey(Key),
                 Delimiter = "/"
             };
 
@@ -279,12 +284,12 @@ namespace Dotkit.S3
             ListObjectsV2Response? response;
             do
             {
-                response = await _s3Client.ListObjectsV2Async(request);
+                response = await _s3Client.ListObjectsV2Async(request).ConfigureAwait(false);
                 foreach (S3Object item in response.S3Objects)
                 {
                     var key = S3Helper.DecodeKey(item.Key);
 
-                    if (string.Equals(_key, key, StringComparison.Ordinal) || !key.EndsWith("\\"))
+                    if (string.Equals(Key, key, StringComparison.Ordinal) || key.EndsWith("\\"))
                         continue;
 
                     var file = new S3FileInfo(_s3Client, _bucketName, key);
@@ -308,13 +313,26 @@ namespace Dotkit.S3
         {
             var lst = new List<IS3FileSystemInfo>();
 
-            var dirs = await GetDirectories();
+            var dirs = await GetDirectories().ConfigureAwait(false);
             lst.AddRange(dirs);
 
-            var files = await GetFiles();
+            var files = await GetFiles().ConfigureAwait(false);
             lst.AddRange(files);
 
             return lst;
+        }
+
+        /// <summary>
+        /// Загрузка локального файла в S3 хранилище
+        /// </summary>
+        /// <param name="localFilePath">Полный путь к локальному файлу</param>
+        /// <returns>Сссылка на себя</returns>
+        public async Task<S3FileInfo> UploadFileAsync(string localFilePath)
+        {
+            var fileName = Path.GetFileName(localFilePath);
+            var key = Key + fileName;
+            var fi = new S3FileInfo(_s3Client, _bucketName, key);
+            return await fi.UploadFileAsync(localFilePath);
         }
     }
 }
