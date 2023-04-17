@@ -19,12 +19,12 @@ namespace Dotkit.S3
         /// <summary>
         /// Идентификатор доступа
         /// </summary>
-        public string AccessKeyId { get; set; } = "YCAJEIzcBfUuI2bK_G3l4k4br";
+        public string AccessKeyId { get; set; } = string.Empty;
 
         /// <summary>
         /// Секретный ключ
         /// </summary>
-        public string SecretAccessKey { get; set; } = "YCNOYDJLZkFf292p-BZMrHLxsnuWzE2JCWCXlA1N";
+        public string SecretAccessKey { get; set; } = string.Empty;
 
         /// <summary>
         /// Регион
@@ -37,7 +37,7 @@ namespace Dotkit.S3
         /// <remarks>
         /// Сервис работает в рамках одного бакета
         /// </remarks>
-        public string BucketName { get; set; } = "test1-sesv";
+        public string BucketName { get; set; } = string.Empty;
 
         public override string ToString()
         {
