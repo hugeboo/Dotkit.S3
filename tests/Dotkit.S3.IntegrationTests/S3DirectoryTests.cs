@@ -7,7 +7,7 @@ namespace Dotkit.S3.IntegrationTests
         [Fact]
         public void CreateAndDeeletDirectory()
         {
-            var config = new S3Configuration();
+            var config = Utils.GetConfiguration();
             var service = config.CreateService();
             
             string path = @"high-level-folder";
@@ -25,7 +25,7 @@ namespace Dotkit.S3.IntegrationTests
         [Fact]
         public void RecursiveDeleteDirectory()
         {
-            var config = new S3Configuration();
+            var config = Utils.GetConfiguration();
             var service = config.CreateService();
 
             string path = @"high-level-folder\1\2\3";
@@ -68,6 +68,23 @@ namespace Dotkit.S3.IntegrationTests
             level23.DeleteAsync(true).Wait();
             lst3 = level23.GetDirectories().Result;
             Assert.Empty(lst3);
+
+            root.DeleteAsync(true).Wait();
+            Assert.False(root.Exists);
+        }
+
+        [Fact]
+        public void EnumerateFiles()
+        {
+            var service = Utils.CreateEnumerateTestDirs();
+
+            var root = service.GetDirectoryAsync("EnumerateTests").Result;
+            var lstRoot = root.GetFiles().Result;
+            Assert.Single(lstRoot);
+
+            var level11 = root.GetSubDirectoryAsync("Level11").Result;
+            var lstLevel11 = level11.GetFiles().Result;
+            Assert.Single(lstRoot);
 
             root.DeleteAsync(true).Wait();
             Assert.False(root.Exists);

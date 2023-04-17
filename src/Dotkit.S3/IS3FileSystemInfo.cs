@@ -37,6 +37,11 @@ namespace Dotkit.S3
         string Name { get; }
 
         /// <summary>
+        /// Returns the key of the item
+        /// </summary>
+        string Key { get; }
+
+        /// <summary>
         /// Indicates what type of item this object represents
         /// </summary>
         FileSystemType Type { get; }

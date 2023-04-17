@@ -8,6 +8,17 @@ namespace Dotkit.S3.IntegrationTests
 {
     internal static class Utils
     {
+        internal static S3Configuration GetConfiguration()
+        {
+            return new S3Configuration
+            {
+                ServiceURL = "https://s3.yandexcloud.net",
+                AccessKeyId = "YCAJEIzcBfUuI2bK_G3l4k4br",
+                SecretAccessKey = "YCNOYDJLZkFf292p-BZMrHLxsnuWzE2JCWCXlA1N",
+                BucketName = "test1-sesv"
+            };
+        }
+
         // Тестовая структура директорий:
         //
         // EnumerateTests
@@ -28,7 +39,7 @@ namespace Dotkit.S3.IntegrationTests
 
         public static IS3Service CreateEnumerateTestDirs()
         {
-            var config = new S3Configuration();
+            var config = GetConfiguration();
             var service = config.CreateService();
 
             var root = service.GetDirectoryAsync("EnumerateTests").Result.CreateAsync().Result;

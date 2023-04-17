@@ -22,8 +22,9 @@ namespace Dotkit.S3
     {
         private readonly string _bucketName;
         private readonly IAmazonS3 _s3Client;
-        private readonly string _key;
         private readonly S3DirectoryInfo _directory;
+
+        public string Key { get; private set; }
 
         public bool Exists { get; private set; }
 
@@ -41,7 +42,7 @@ namespace Dotkit.S3
             }
         }
 
-        public string FullName => $"{_bucketName}:\\{_key}";
+        public string FullName => $"{_bucketName}:\\{Key}";
 
         public DateTime LastModifiedTime { get; private set; }
 
@@ -49,8 +50,8 @@ namespace Dotkit.S3
         {
             get
             {
-                int num = _key.LastIndexOf('\\');
-                return _key.Substring(num + 1);
+                int num = Key.LastIndexOf('\\');
+                return Key.Substring(num + 1);
             }
         }
 
@@ -91,7 +92,7 @@ namespace Dotkit.S3
 
             _s3Client = s3Client;
             _bucketName = bucket;
-            _key = key;
+            Key = key;
 
             string dirKey = null!;
             int num = key.LastIndexOf('\\');
@@ -106,6 +107,8 @@ namespace Dotkit.S3
             _directory = new S3DirectoryInfo(s3Client, bucket, dirKey);
         }
 
+        public override string ToString() => Key;
+
         /// <summary>
         /// Актуалзировать информацию (Exists, LastModifiedTime, Length) из S3 хранилища
         /// </summary>
@@ -116,10 +119,10 @@ namespace Dotkit.S3
                 var request = new ListObjectsV2Request
                 {
                     BucketName = _bucketName,
-                    Prefix = S3Helper.EncodeKey(_key),
+                    Prefix = S3Helper.EncodeKey(Key),
                     MaxKeys = 1
                 };
-                var response = await _s3Client.ListObjectsV2Async(request);
+                var response = await _s3Client.ListObjectsV2Async(request).ConfigureAwait(false);
                 if (response.HttpStatusCode == System.Net.HttpStatusCode.OK && response.S3Objects.Count == 1)
                 {
                     Exists = true;
@@ -137,9 +140,9 @@ namespace Dotkit.S3
                     var getObjectMetadataRequest = new GetObjectMetadataRequest
                     {
                         BucketName = _bucketName,
-                        Key = S3Helper.EncodeKey(_key)
+                        Key = S3Helper.EncodeKey(Key)
                     };
-                    var metaResponse = await _s3Client.GetObjectMetadataAsync(getObjectMetadataRequest);
+                    var metaResponse = await _s3Client.GetObjectMetadataAsync(getObjectMetadataRequest).ConfigureAwait(false);
                     Length = metaResponse.ContentLength;
                 }
             }
@@ -180,13 +183,13 @@ namespace Dotkit.S3
                 AutoCloseStream = false,
                 StorageClass = S3StorageClass.StandardInfrequentAccess,
                 PartSize = 6291456, // 6 MB.
-                Key = S3Helper.EncodeKey(_key),
+                Key = S3Helper.EncodeKey(Key),
                 CannedACL = S3CannedACL.PublicRead
             };
             //fileTransferUtilityRequest.Metadata.Add("param1", "Value1");
             //fileTransferUtilityRequest.Metadata.Add("param2", "Value2");
 
-            await fileTransferUtility.UploadAsync(fileTransferUtilityRequest);
+            await fileTransferUtility.UploadAsync(fileTransferUtilityRequest).ConfigureAwait(false);
 
             await UpdateFromRemoteAsync();
 
@@ -225,13 +228,13 @@ namespace Dotkit.S3
                 FilePath = localFilePath,
                 StorageClass = S3StorageClass.StandardInfrequentAccess,
                 PartSize = 6291456, // 6 MB.
-                Key = S3Helper.EncodeKey(_key),
+                Key = S3Helper.EncodeKey(Key),
                 CannedACL = S3CannedACL.PublicRead
             };
             //fileTransferUtilityRequest.Metadata.Add("param1", "Value1");
             //fileTransferUtilityRequest.Metadata.Add("param2", "Value2");
 
-            await fileTransferUtility.UploadAsync(fileTransferUtilityRequest);
+            await fileTransferUtility.UploadAsync(fileTransferUtilityRequest).ConfigureAwait(false);
 
             await UpdateFromRemoteAsync();
 
@@ -250,11 +253,11 @@ namespace Dotkit.S3
             var fileTransferUtilityRequest = new TransferUtilityDownloadRequest
             {
                 BucketName = _bucketName,
-                Key = S3Helper.EncodeKey(_key),
+                Key = S3Helper.EncodeKey(Key),
                 FilePath = localFilePath
             };
 
-            await fileTransferUtility.DownloadAsync(fileTransferUtilityRequest);
+            await fileTransferUtility.DownloadAsync(fileTransferUtilityRequest).ConfigureAwait(false);
 
             return File.Exists(localFilePath);
         }
@@ -272,9 +275,9 @@ namespace Dotkit.S3
             GetObjectRequest getObjectRequest = new GetObjectRequest
             {
                 BucketName = _bucketName,
-                Key = S3Helper.EncodeKey(_key)
+                Key = S3Helper.EncodeKey(Key)
             };
-            GetObjectResponse getObjectResponse = await _s3Client.GetObjectAsync(getObjectRequest);
+            GetObjectResponse getObjectResponse = await _s3Client.GetObjectAsync(getObjectRequest).ConfigureAwait(false);
             return getObjectResponse.ResponseStream;
         }
 
@@ -283,9 +286,9 @@ namespace Dotkit.S3
             var deleteObjectRequest = new DeleteObjectRequest
             {
                 BucketName = _bucketName,
-                Key = S3Helper.EncodeKey(_key)
+                Key = S3Helper.EncodeKey(Key)
             };
-            await _s3Client.DeleteObjectAsync(deleteObjectRequest);
+            await _s3Client.DeleteObjectAsync(deleteObjectRequest).ConfigureAwait(false);
             await UpdateFromRemoteAsync();
         }
     }

@@ -10,10 +10,13 @@ namespace Dotkit.S3
     /// <summary>
     /// <inheritdoc/>
     /// </summary>
-    internal sealed class S3Service : IS3Service, IDisposable
+    internal sealed class S3Service : IS3Service
     {
         private readonly string _bucketName;
         private readonly IAmazonS3 _s3Client;
+        private readonly S3DirectoryInfo _root;
+
+        public S3DirectoryInfo Root => _root;
 
         public S3Service(S3Configuration configuration)
         {
@@ -24,6 +27,7 @@ namespace Dotkit.S3
                 ServiceURL = configuration.ServiceURL
             };
             _s3Client = new AmazonS3Client(configuration.AccessKeyId, configuration.SecretAccessKey, s3Config);
+            _root = new S3DirectoryInfo(_s3Client, _bucketName, "", true);
         }
 
         public void Dispose()

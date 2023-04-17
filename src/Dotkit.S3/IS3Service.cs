@@ -12,7 +12,7 @@ namespace Dotkit.S3
     /// <remarks>
     /// Работает в рамках одного бакета
     /// </remarks>
-    public interface IS3Service
+    public interface IS3Service : IDisposable
     {
         /// <summary>
         /// Возвращает информацию о директории
@@ -22,7 +22,12 @@ namespace Dotkit.S3
         Task<S3DirectoryInfo> GetDirectoryAsync(string key);
 
         /// <summary>
-        /// Возвразает информацию о файле
+        /// Корневая директория для бакета
+        /// </summary>
+        S3DirectoryInfo Root { get; }
+
+        /// <summary>
+        /// Возвращает информацию о файле
         /// </summary>
         /// <param name="key">Путь к файлу</param>
         /// <returns>Инфорамция о файле</returns>
