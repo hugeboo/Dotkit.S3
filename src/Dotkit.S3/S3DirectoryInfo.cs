@@ -104,8 +104,7 @@ namespace Dotkit.S3
                     MaxKeys = 1
                 };
                 var response = await _s3Client.ListObjectsV2Async(request).ConfigureAwait(false);
-                if (response.HttpStatusCode == System.Net.HttpStatusCode.OK && response.S3Objects.Count == 1 &&
-                    response.S3Objects[0].Key == S3Helper.EncodeKey(Key))
+                if (response.HttpStatusCode == System.Net.HttpStatusCode.OK && response.S3Objects.Count == 1)
                 {
                     Exists = true;
                     LastModifiedTime = response.S3Objects[0].LastModified;
@@ -123,7 +122,10 @@ namespace Dotkit.S3
                     Exists = false;
                     LastModifiedTime = DateTime.MinValue;
                 }
-                throw;
+                else
+                {
+                    throw;
+                }
             }
         }
 

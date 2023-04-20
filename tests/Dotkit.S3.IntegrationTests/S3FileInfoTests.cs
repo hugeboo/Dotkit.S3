@@ -16,7 +16,7 @@ namespace Dotkit.S3.IntegrationTests
             var text00 = service.GetFileAsync("EnumerateTests\\text00.txt").Result;
             Assert.True(text00.Exists);
             Assert.True(text00.LastModifiedTime > DateTime.MinValue);
-            Assert.True(text00.Length > 0);
+            Assert.True(text00.Length == 6);
             text00.DeleteAsync().Wait();
             Assert.False(text00.Exists);
             Assert.False(text00.LastModifiedTime > DateTime.MinValue);
@@ -27,7 +27,7 @@ namespace Dotkit.S3.IntegrationTests
             
             Assert.True(text111.Exists);
             Assert.True(text111.LastModifiedTime > DateTime.MinValue);
-            Assert.True(text111.Length > 0);
+            Assert.True(text111.Length == 6);
             text111.DeleteAsync().Wait();
             Assert.False(text111.Exists);
             Assert.False(text111.LastModifiedTime > DateTime.MinValue);
@@ -35,7 +35,7 @@ namespace Dotkit.S3.IntegrationTests
 
             Assert.True(text112.Exists);
             Assert.True(text112.LastModifiedTime > DateTime.MinValue);
-            Assert.True(text112.Length > 0);
+            Assert.True(text112.Length == 2);
             text112.DeleteAsync().Wait();
             Assert.False(text112.Exists);
             Assert.False(text112.LastModifiedTime > DateTime.MinValue);

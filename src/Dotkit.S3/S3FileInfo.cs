@@ -112,22 +112,13 @@ namespace Dotkit.S3
         {
             try
             {
-                try
-                {
-                    var request0 = new GetObjectRequest
-                    {
-                        BucketName = _bucketName,
-                        Key = S3Helper.EncodeKey(Key)
-                    };
-                    var response0 = await _s3Client.GetObjectAsync(request0).ConfigureAwait(false);
-                }
-                catch(string.Equals(ex.ErrorCode, "NotFound"))
-                {
-                    if (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
-                    {
-                        //...
-                    }
-                }
+                // Можно и так, но здесь создаётся поток на чтение файла (это лишнее)
+                //var request0 = new GetObjectRequest
+                //{
+                //    BucketName = _bucketName,
+                //    Key = S3Helper.EncodeKey(Key)
+                //};
+                //using var response0 = await _s3Client.GetObjectAsync(request0).ConfigureAwait(false);
 
                 var request = new ListObjectsV2Request
                 {
@@ -141,24 +132,27 @@ namespace Dotkit.S3
                 {
                     Exists = true;
                     LastModifiedTime = response.S3Objects[0].LastModified;
+                    Length = response.S3Objects[0].Size;
                 }
                 else
                 {
                     Exists = false;
                     LastModifiedTime = DateTime.MinValue;
+                    Length = 0L;
                 }
 
-                Length = 0L;
-                if (Exists)
-                {
-                    var getObjectMetadataRequest = new GetObjectMetadataRequest
-                    {
-                        BucketName = _bucketName,
-                        Key = S3Helper.EncodeKey(Key)
-                    };
-                    var metaResponse = await _s3Client.GetObjectMetadataAsync(getObjectMetadataRequest).ConfigureAwait(false);
-                    Length = metaResponse.ContentLength;
-                }
+                // Это лишнее. Размер мы и так уже знаем
+                //Length = 0L;
+                //if (Exists)
+                //{
+                //    var getObjectMetadataRequest = new GetObjectMetadataRequest
+                //    {
+                //        BucketName = _bucketName,
+                //        Key = S3Helper.EncodeKey(Key)
+                //    };
+                //    var metaResponse = await _s3Client.GetObjectMetadataAsync(getObjectMetadataRequest).ConfigureAwait(false);
+                //    Length = metaResponse.ContentLength;
+                //}
             }
             catch (AmazonS3Exception ex)
             {
@@ -168,7 +162,10 @@ namespace Dotkit.S3
                     LastModifiedTime = DateTime.MinValue;
                     Length = 0L;
                 }
-                throw;
+                else
+                {
+                    throw;
+                }
             }
         }
 
