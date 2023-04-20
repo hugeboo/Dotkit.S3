@@ -94,15 +94,11 @@ namespace Dotkit.S3
             _bucketName = bucket;
             Key = key;
 
-            string dirKey = null!;
+            string dirKey = string.Empty;
             int num = key.LastIndexOf('\\');
             if (num >= 0)
             {
                 dirKey = key.Substring(0, num);
-            }
-            else
-            {
-                new ArgumentException("key contains bad directory");
             }
             _directory = new S3DirectoryInfo(s3Client, bucket, dirKey);
         }
@@ -116,6 +112,23 @@ namespace Dotkit.S3
         {
             try
             {
+                try
+                {
+                    var request0 = new GetObjectRequest
+                    {
+                        BucketName = _bucketName,
+                        Key = S3Helper.EncodeKey(Key)
+                    };
+                    var response0 = await _s3Client.GetObjectAsync(request0).ConfigureAwait(false);
+                }
+                catch(string.Equals(ex.ErrorCode, "NotFound"))
+                {
+                    if (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+                    {
+                        //...
+                    }
+                }
+
                 var request = new ListObjectsV2Request
                 {
                     BucketName = _bucketName,
@@ -123,7 +136,8 @@ namespace Dotkit.S3
                     MaxKeys = 1
                 };
                 var response = await _s3Client.ListObjectsV2Async(request).ConfigureAwait(false);
-                if (response.HttpStatusCode == System.Net.HttpStatusCode.OK && response.S3Objects.Count == 1)
+                if (response.HttpStatusCode == System.Net.HttpStatusCode.OK && response.S3Objects.Count == 1 &&
+                    response.S3Objects[0].Key == S3Helper.EncodeKey(Key))
                 {
                     Exists = true;
                     LastModifiedTime = response.S3Objects[0].LastModified;
@@ -163,6 +177,7 @@ namespace Dotkit.S3
         /// </summary>
         internal void InitFromRemoteObject(S3Object obj)
         {
+            Exists = true;
             LastModifiedTime = obj.LastModified;
             Length = obj.Size;
         }

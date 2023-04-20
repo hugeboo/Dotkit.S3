@@ -22,14 +22,24 @@ namespace Dotkit.S3.IntegrationTests
             Assert.False(text00.LastModifiedTime > DateTime.MinValue);
             Assert.False(text00.Length > 0);
 
-            var text11 = service.GetFileAsync("EnumerateTests\\Level11\\text11.txt").Result;
-            Assert.True(text11.Exists);
-            Assert.True(text11.LastModifiedTime > DateTime.MinValue);
-            Assert.True(text11.Length > 0);
-            text11.DeleteAsync().Wait();
-            Assert.False(text11.Exists);
-            Assert.False(text11.LastModifiedTime > DateTime.MinValue);
-            Assert.False(text11.Length > 0);
+            var text111 = service.GetFileAsync("EnumerateTests\\Level11\\text11.txt").Result;
+            var text112 = service.GetFileAsync("EnumerateTests\\Level11\\text11.txt.user").Result.CreateTextAsync("00").Result;
+            
+            Assert.True(text111.Exists);
+            Assert.True(text111.LastModifiedTime > DateTime.MinValue);
+            Assert.True(text111.Length > 0);
+            text111.DeleteAsync().Wait();
+            Assert.False(text111.Exists);
+            Assert.False(text111.LastModifiedTime > DateTime.MinValue);
+            Assert.False(text111.Length > 0);
+
+            Assert.True(text112.Exists);
+            Assert.True(text112.LastModifiedTime > DateTime.MinValue);
+            Assert.True(text112.Length > 0);
+            text112.DeleteAsync().Wait();
+            Assert.False(text112.Exists);
+            Assert.False(text112.LastModifiedTime > DateTime.MinValue);
+            Assert.False(text112.Length > 0);
 
             var root = service.GetDirectoryAsync("EnumerateTests").Result;
             root.DeleteAsync(true).Wait();

@@ -44,6 +44,27 @@ namespace Dotkit.S3.IntegrationTests
         }
 
         [Fact]
+        public void RootDirectoryTest()
+        {
+            var config = Utils.GetConfiguration();
+            var service = config.CreateService();
+
+            var root = service.Root;
+            Assert.NotNull(root);
+
+            Assert.True(root.Exists);
+            Assert.Equal(string.Empty, root.Name);
+            Assert.Equal(string.Empty, root.Extension);
+            Assert.Equal($"{config.BucketName}:\\", root.FullName);
+
+            service.GetFileAsync("67").Result.CreateTextAsync("").Wait();
+
+            var items = root.GetItems().Result;
+            var file = items.First(it => it.Name == "67");
+            Assert.True(file.Exists);
+        }
+
+        [Fact]
         public void EnumerateDirectories()
         {
             var service = Utils.CreateEnumerateTestDirs();

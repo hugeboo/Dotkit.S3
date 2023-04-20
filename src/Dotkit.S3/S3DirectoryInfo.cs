@@ -57,6 +57,8 @@ namespace Dotkit.S3
         {
             get
             {
+                if (Key == string.Empty) return Key;
+
                 int num = Key.LastIndexOf('\\');
                 int num2 = Key.LastIndexOf('\\', num - 1);
                 return Key.Substring(num2 + 1, num - num2 - 1);
@@ -102,7 +104,8 @@ namespace Dotkit.S3
                     MaxKeys = 1
                 };
                 var response = await _s3Client.ListObjectsV2Async(request).ConfigureAwait(false);
-                if (response.HttpStatusCode == System.Net.HttpStatusCode.OK && response.S3Objects.Count == 1)
+                if (response.HttpStatusCode == System.Net.HttpStatusCode.OK && response.S3Objects.Count == 1 &&
+                    response.S3Objects[0].Key == S3Helper.EncodeKey(Key))
                 {
                     Exists = true;
                     LastModifiedTime = response.S3Objects[0].LastModified;
