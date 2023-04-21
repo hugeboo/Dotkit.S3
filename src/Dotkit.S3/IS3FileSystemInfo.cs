@@ -47,11 +47,6 @@ namespace Dotkit.S3
         FileSystemType Type { get; }
 
         /// <summary>
-        /// Returns the ETag of the item
-        /// </summary>
-        string? ETag { get; }
-
-        /// <summary>
         /// Deletes this item from S3
         /// </summary>
         Task DeleteAsync();

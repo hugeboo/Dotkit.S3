@@ -64,16 +64,12 @@ namespace Dotkit.S3.IntegrationTests
             File.Delete(tempFileName);
 
             tempFileName = Path.GetTempFileName();
-            bool ok = fi.DownloadAsync(tempFileName, true).Result;
+            bool ok = fi.DownloadAsync(tempFileName).Result;
             Assert.True(ok);
             var lfi = new FileInfo(tempFileName);
             Assert.True(lfi.Exists);
             Assert.Equal(size, lfi.Length);
-            var tagLfi = new FileInfo($"{tempFileName}.etag");
-            Assert.True(tagLfi.Exists);
-            Assert.Equal(fi.ETag, File.ReadAllText($"{tempFileName}.etag"));
             File.Delete(tempFileName);
-            File.Delete($"{tempFileName}.etag");
 
             var root = service.GetDirectoryAsync("EnumerateTests").Result;
             root.DeleteAsync(true).Wait();

@@ -27,8 +27,6 @@ namespace Dotkit.S3
 
         public string Key { get; private set; }
 
-        public string? ETag { get; private set; }
-
         /// <summary>
         /// "Корень" S3 хранилища
         /// </summary>
@@ -110,13 +108,11 @@ namespace Dotkit.S3
                 {
                     Exists = true;
                     LastModifiedTime = response.S3Objects[0].LastModified;
-                    ETag = response.S3Objects[0].ETag;
                 }
                 else
                 {
                     Exists = false;
                     LastModifiedTime = DateTime.MinValue;
-                    ETag = null;
                 }
             }
             catch(AmazonS3Exception ex)
@@ -125,7 +121,6 @@ namespace Dotkit.S3
                 {
                     Exists = false;
                     LastModifiedTime = DateTime.MinValue;
-                    ETag = null;
                 }
                 else
                 {

@@ -28,8 +28,6 @@ namespace Dotkit.S3
 
         public bool Exists { get; private set; }
 
-        public string? ETag { get; private set; }
-
         public string Extension
         {
             get
@@ -135,14 +133,12 @@ namespace Dotkit.S3
                     Exists = true;
                     LastModifiedTime = response.S3Objects[0].LastModified;
                     Length = response.S3Objects[0].Size;
-                    ETag = response.S3Objects[0].ETag;
                 }
                 else
                 {
                     Exists = false;
                     LastModifiedTime = DateTime.MinValue;
                     Length = 0L;
-                    ETag = null;
                 }
 
                 // Это лишнее. Размер мы и так уже знаем
@@ -181,7 +177,6 @@ namespace Dotkit.S3
             Exists = true;
             LastModifiedTime = obj.LastModified;
             Length = obj.Size;
-            ETag = obj.ETag;
         }
 
         /// <summary>
@@ -258,11 +253,12 @@ namespace Dotkit.S3
             return this;
         }
 
-        /// <summary>Загрузить файл из S3 хранилища в локальную ФС</summary>
+        /// <summary>
+        /// Загрузить файл из S3 хранилища в локальную ФС
+        /// </summary>
         /// <param name="localFilePath">Полный локальный путь</param>
-        /// <param name="createETagFile">Создать файл filename.etag с тэгом ETag</param>
         /// <returns>Признак успеха операции</returns>
-        public async Task<bool> DownloadAsync(string localFilePath, bool createETagFile)
+        public async Task<bool> DownloadAsync(string localFilePath)
         {
             using var fileTransferUtility = new TransferUtility(_s3Client);
 
@@ -275,14 +271,7 @@ namespace Dotkit.S3
 
             await fileTransferUtility.DownloadAsync(fileTransferUtilityRequest).ConfigureAwait(false);
 
-            bool ok = File.Exists(localFilePath);
-
-            if (ok && createETagFile)
-            {
-                File.WriteAllText($"{localFilePath}.etag", this.ETag);
-            }
-
-            return ok;
+            return File.Exists(localFilePath);
         }
 
         /// <summary>
