@@ -20,6 +20,8 @@ namespace Dotkit.S3
     /// </summary>
     public sealed class S3FileInfo : IS3FileSystemInfo
     {
+        public const long DEFAULT_PART_SIZE = 8 * 1024 * 1024;
+
         private readonly string _bucketName;
         private readonly IAmazonS3 _s3Client;
         private readonly S3DirectoryInfo _directory;
@@ -188,8 +190,11 @@ namespace Dotkit.S3
         /// Создание (загрузка) файла в S3 хранилище из локального входного потока
         /// </summary>
         /// <param name="stream">Входной поток</param>
+        /// <param name="progressAction">Прогресс выполнения операции - callback function</param>
+        /// <param name="partSize">Размер частей при загрузке большого файла. По-умолчанию, <see cref="DEFAULT_PART_SIZE"/></param>
         /// <returns>Сссылка на себя</returns>
-        public async Task<S3FileInfo> CreateAsync(Stream stream)
+        public async Task<S3FileInfo> CreateAsync(Stream stream, 
+            Action<UploadProgressArgs>? progressAction = null, long? partSize = null)
         {
             using var fileTransferUtility = new TransferUtility(_s3Client);
 
@@ -199,10 +204,11 @@ namespace Dotkit.S3
                 InputStream = stream,
                 AutoCloseStream = false,
                 StorageClass = S3StorageClass.StandardInfrequentAccess,
-                PartSize = 6291456, // 6 MB.
+                PartSize = partSize ?? DEFAULT_PART_SIZE,
                 Key = S3Helper.EncodeKey(Key),
                 CannedACL = S3CannedACL.PublicRead
             };
+            fileTransferUtilityRequest.UploadProgressEvent += (sender, e) => progressAction?.Invoke(e);
             //fileTransferUtilityRequest.Metadata.Add("param1", "Value1");
             //fileTransferUtilityRequest.Metadata.Add("param2", "Value2");
 
@@ -234,8 +240,11 @@ namespace Dotkit.S3
         /// Загрузка локального файла в S3 хранилище
         /// </summary>
         /// <param name="localFilePath">Полный путь к локальному файлу</param>
+        /// <param name="progressAction">Прогресс выполнения операции - callback function</param>
+        /// <param name="partSize">Размер частей при загрузке большого файла. По-умолчанию, <see cref="DEFAULT_PART_SIZE"/></param>
         /// <returns>Сссылка на себя</returns>
-        public async Task<S3FileInfo> UploadFileAsync(string localFilePath)
+        public async Task<S3FileInfo> UploadFileAsync(string localFilePath,
+            Action<UploadProgressArgs>? progressAction = null, long? partSize = null)
         {
             using var fileTransferUtility = new TransferUtility(_s3Client);
 
@@ -244,10 +253,11 @@ namespace Dotkit.S3
                 BucketName = _bucketName,
                 FilePath = localFilePath,
                 StorageClass = S3StorageClass.StandardInfrequentAccess,
-                PartSize = 6291456, // 6 MB.
+                PartSize = partSize ?? DEFAULT_PART_SIZE,
                 Key = S3Helper.EncodeKey(Key),
                 CannedACL = S3CannedACL.PublicRead
             };
+            fileTransferUtilityRequest.UploadProgressEvent += (sender, e) => progressAction?.Invoke(e);
             //fileTransferUtilityRequest.Metadata.Add("param1", "Value1");
             //fileTransferUtilityRequest.Metadata.Add("param2", "Value2");
 
@@ -261,8 +271,10 @@ namespace Dotkit.S3
         /// <summary>Загрузить файл из S3 хранилища в локальную ФС</summary>
         /// <param name="localFilePath">Полный локальный путь</param>
         /// <param name="createETagFile">Создать файл filename.etag с тэгом ETag</param>
+        /// <param name="progressAction">Прогресс выполнения операции - callback function</param>
         /// <returns>Признак успеха операции</returns>
-        public async Task<bool> DownloadAsync(string localFilePath, bool createETagFile)
+        public async Task<bool> DownloadAsync(string localFilePath, bool createETagFile,
+            Action<WriteObjectProgressArgs>? progressAction = null)
         {
             using var fileTransferUtility = new TransferUtility(_s3Client);
 
@@ -272,6 +284,7 @@ namespace Dotkit.S3
                 Key = S3Helper.EncodeKey(Key),
                 FilePath = localFilePath
             };
+            fileTransferUtilityRequest.WriteObjectProgressEvent += (sender, e) => progressAction?.Invoke(e);
 
             await fileTransferUtility.DownloadAsync(fileTransferUtilityRequest).ConfigureAwait(false);
 

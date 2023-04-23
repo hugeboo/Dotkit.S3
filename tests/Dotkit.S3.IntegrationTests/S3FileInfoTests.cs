@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -58,13 +59,19 @@ namespace Dotkit.S3.IntegrationTests
             var service = Utils.CreateEnumerateTestDirs();
             var fi = service.GetFileAsync("EnumerateTests\\test_file.txt").Result;
 
-            fi.UploadFileAsync(tempFileName).Wait();
+            fi.UploadFileAsync(tempFileName, (e) => 
+            {
+                Debug.WriteLine($"{e.FilePath}: {e}");
+            }, 1024 * 1024).Wait();
             Assert.True(fi.Exists);
             Assert.Equal(size, fi.Length);
             File.Delete(tempFileName);
 
             tempFileName = Path.GetTempFileName();
-            bool ok = fi.DownloadAsync(tempFileName, true).Result;
+            bool ok = fi.DownloadAsync(tempFileName, true, (e) => 
+            {
+                Debug.WriteLine($"{e.FilePath}: {e}");
+            }).Result;
             Assert.True(ok);
             var lfi = new FileInfo(tempFileName);
             Assert.True(lfi.Exists);
